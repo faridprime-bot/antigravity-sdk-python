@@ -38,6 +38,52 @@ class TriggerContextTest(unittest.IsolatedAsyncioTestCase):
 
     conn.send_trigger_notification.assert_called_once_with("hello")
 
+  async def test_send_immediately_does_not_wait_or_cancel(self):
+    conn = self._make_mock_connection()
+    ctx = triggers.TriggerContext(connection=conn)
+
+    await ctx.send("hello", delivery=triggers.TriggerDelivery.SEND_IMMEDIATELY)
+
+    conn.wait_for_idle.assert_not_called()
+    conn.cancel.assert_not_called()
+    conn.send_trigger_notification.assert_called_once_with("hello")
+
+  async def test_wait_idle_waits_before_sending(self):
+    conn = self._make_mock_connection()
+    manager = mock.Mock()
+    manager.attach_mock(conn.wait_for_idle, "wait_for_idle")
+    manager.attach_mock(
+        conn.send_trigger_notification, "send_trigger_notification"
+    )
+    ctx = triggers.TriggerContext(connection=conn)
+
+    await ctx.send("hello", delivery=triggers.TriggerDelivery.WAIT_IDLE)
+
+    conn.wait_for_idle.assert_called_once()
+    conn.cancel.assert_not_called()
+    self.assertEqual(
+        [call[0] for call in manager.mock_calls],
+        ["wait_for_idle", "send_trigger_notification"],
+    )
+
+  async def test_interrupt_cancels_before_sending(self):
+    conn = self._make_mock_connection()
+    manager = mock.Mock()
+    manager.attach_mock(conn.cancel, "cancel")
+    manager.attach_mock(
+        conn.send_trigger_notification, "send_trigger_notification"
+    )
+    ctx = triggers.TriggerContext(connection=conn)
+
+    await ctx.send("hello", delivery=triggers.TriggerDelivery.INTERRUPT)
+
+    conn.cancel.assert_called_once()
+    conn.wait_for_idle.assert_not_called()
+    self.assertEqual(
+        [call[0] for call in manager.mock_calls],
+        ["cancel", "send_trigger_notification"],
+    )
+
 
 class TriggerTypeTest(unittest.TestCase):
 

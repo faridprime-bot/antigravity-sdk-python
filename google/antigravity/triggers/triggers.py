@@ -27,10 +27,18 @@ from typing import Awaitable, Callable, Protocol
 
 import pydantic
 
+from google.antigravity.types import TriggerDelivery
+
 
 class TriggerConnection(Protocol):
 
   async def send_trigger_notification(self, content: str) -> None:
+    ...
+
+  async def wait_for_idle(self) -> None:
+    ...
+
+  async def cancel(self) -> None:
     ...
 
 
@@ -50,12 +58,21 @@ class TriggerContext:
   async def send(
       self,
       content: str,
+      delivery: TriggerDelivery = TriggerDelivery.SEND_IMMEDIATELY,
   ) -> None:
     """Sends a message to the agent.
 
     Args:
       content: The message content.
+      delivery: Controls when the message is delivered relative to any turn
+        currently in progress. SEND_IMMEDIATELY (default) sends right away.
+        WAIT_IDLE waits for the agent to finish its current turn first.
+        INTERRUPT cancels the current turn before sending.
     """
+    if delivery == TriggerDelivery.WAIT_IDLE:
+      await self._connection.wait_for_idle()
+    elif delivery == TriggerDelivery.INTERRUPT:
+      await self._connection.cancel()
     await self._connection.send_trigger_notification(content)
 
 

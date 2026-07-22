@@ -736,8 +736,7 @@ class TriggerDelivery(str, enum.Enum):
 
   SEND_IMMEDIATELY = "send_immediately"  # Send immediately (non-blocking).
   WAIT_IDLE = "wait_idle"  # Wait until agent is idle before sending.
-  # TODO: INTERRUPT — cancel current turn, then send. Deferred due to
-  # safety implications for in-flight tool calls (requires Connection.cancel()).
+  INTERRUPT = "interrupt"  # Cancel the current turn, then send.
 
 
 # =============================================================================
